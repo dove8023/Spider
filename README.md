@@ -21,3 +21,6 @@ GetHrefs();   从缓存中拿到将要进行请求的链接，调用GetHttp，�
 SaveHrefs(); 每隔一段时间从Result中截取一些数据存入数据库中。
 
 其它，RedisList()操作redis的列
+
+
+It's a good things.
