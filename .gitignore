@@ -1,0 +1,8 @@
+# 忽略node_modules文件夹
+node_modules/
+
+# 数据库文件
+config.json
+
+# 过滤系统记录文件
+.out
