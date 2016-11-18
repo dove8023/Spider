@@ -3,14 +3,19 @@ const cheerio    = require("cheerio");
 const eventproxy = require("eventproxy");
 const DB         = require("./setup");
 const redis      = require("redis");
-
+const headers = {
+    origin: 'baidu.com/',
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/52.0.2725.0 Safari/537.36'
+}
 let client = redis.createClient(6379 , "localhost" , {});
-let Reg = /\w+\.ifeng\.\w+/i;
+let Reg = /itbilu|^\//i;
+let Reg2 = /^\//i;
 let Result  = [];
 let n = 0;
 
 function GetHttp (href , ep){
-    superagent.get(href).end((err , res)=>{
+    console.log("just go GetHttp" , href);
+    superagent.get(href).set("User-Agent" , headers["User-Agent"]).end((err , res)=>{
         ep.emit("getOver" , [href]);
         n++;
         console.log(href , n);
@@ -20,16 +25,20 @@ function GetHttp (href , ep){
         }
         let $ = cheerio.load(res.text);
         let aE= $("a");
-
+        console.log("this links a: " , aE.length);
         for(let i=0,len=aE.length;i<len;i++){
             let Href = aE.eq(i).attr("href");
             let Text = aE.eq(i).text();
+            // console.log("this Href:" , Href);
             if(Reg.test(Href)){
                 if(Href.length > 150){
                     Href = Href.substr(0 , 150);
                 }
                 if(Text.length > 150){
                     Text = Text.substr(0 , 150);
+                }
+                if(Reg2.test(Href)){
+                    Href = "http://itbilu.com"+Href;
                 }
                 client.get(Href , (err , data)=>{
                     if(data) return;
@@ -43,12 +52,14 @@ function GetHttp (href , ep){
                     $ = null;
                     aE = null;
                 });
+            }else{
+                console.log("not match" , Href);
             }
         }
     });
 }
 
-
+let Over = 0; //等待请求队列如果3次获取为0，则代表基于当前正则匹配请求结束
 function GetHrefs(){
     let ep = new eventproxy();
     ep.after("getOver" , 40 , function(result){
@@ -58,12 +69,15 @@ function GetHrefs(){
         setTimeout(GetHrefs , 5000);
     });
     RedisListE.getList(40 , function(result){
-        if(result.length == 0){
-            return;
-        }
-
+        console.log(result)
         result.forEach(function(oneHref){
             if(!oneHref){
+                if(oneHref == null){
+                    Over++;
+                    if(Over >= 100){
+                        GetOver();
+                    }
+                }
                 ep.emit("getOver" , [oneHref]);
                 return; 
             }
@@ -89,10 +103,26 @@ function SaveHrefs(){
     });
 }
 
+function GetOver(){
+    RedisListE.removeAll();
+    if(Result.length != 0){
+        SaveHrefs();
+        setTimeout(function(){
+            console.log("基于当前正则匹配请求结束");
+            console.log("总共发起请求 : " , n);
+            process.exit();
+        } , 3000);
+    }else{
+        console.log("基于当前正则匹配请求结束");
+        console.log("总共发起请求 : " , n);
+        process.exit();
+    }
+}
+
+
 
 function RedisList(){
     this.client = client;
-    this.addList("http://www.ifeng.com");
 }
 
 RedisList.prototype.getList = function(num , callback) {
@@ -112,7 +142,13 @@ RedisList.prototype.addList = function(item) {
     this.client.lpush("Cache" , item);
 };
 
+RedisList.prototype.removeAll = function(){
+    this.client.flushall();
+}
+
 var RedisListE = new RedisList();
+
+RedisListE.addList("http://itbilu.com/");
 
 GetHrefs();
 

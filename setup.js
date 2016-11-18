@@ -12,14 +12,14 @@ var sequelize = new Sequelize(config.database , config.user , config.password , 
 
 
 /* Users table */
-var Alink = sequelize.define("a_link3" , {
+var Alink = sequelize.define("takeGood" , {
 	"text" : { type: Sequelize.STRING , allowNull : false },
 	"href" : { type: Sequelize.STRING , allowNull : false },
     "number" : { type : Sequelize.INTEGER }
 });
 
-// sequelize.sync({force:true});
-sequelize.sync();
+sequelize.sync({force:true});
+// sequelize.sync();
 
 
 module.exports = {
